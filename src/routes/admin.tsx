@@ -169,11 +169,34 @@ function AdminPage() {
   };
 
   const loadTokens = useCallback(async () => {
-    const { data } = await supabase
+    let result: TokenRow[] = [];
+    const { data, error } = await supabase
       .from("tokens")
       .select("id, token_string, is_active, form_url, exam_title")
       .order("created_at", { ascending: false });
-    setTokens(data ?? []);
+
+    if (error) {
+      // Fallback if form_url/exam_title columns are not in remote DB schema yet
+      const { data: fallbackData } = await supabase
+        .from("tokens")
+        .select("id, token_string, is_active")
+        .order("created_at", { ascending: false });
+      result = (fallbackData ?? []) as TokenRow[];
+    } else {
+      result = (data ?? []) as TokenRow[];
+    }
+
+    // Merge any locally stored token custom configurations
+    try {
+      const stored = JSON.parse(localStorage.getItem("custom_token_configs") || "{}");
+      result = result.map((t) => ({
+        ...t,
+        form_url: t.form_url || stored[t.token_string]?.form_url,
+        exam_title: t.exam_title || stored[t.token_string]?.exam_title,
+      }));
+    } catch {}
+
+    setTokens(result);
   }, []);
 
   const fetchLogsAndSessions = useCallback(async () => {
@@ -252,12 +275,39 @@ function AdminPage() {
       cleanFormUrl = cleanFormUrl.includes("?") ? `${cleanFormUrl}&embedded=true` : `${cleanFormUrl}?embedded=true`;
     }
 
-    await supabase.from("tokens").insert({
+    const titleVal = newExamTitle.trim();
+    const payload: Record<string, unknown> = {
       token_string: value,
-      exam_title: newExamTitle.trim() || null,
-      form_url: cleanFormUrl || null,
       is_active: true,
-    });
+    };
+    if (titleVal) payload.exam_title = titleVal;
+    if (cleanFormUrl) payload.form_url = cleanFormUrl;
+
+    const { error } = await supabase.from("tokens").insert(payload as any);
+
+    if (error) {
+      console.warn("Retrying with basic token insertion...", error.message);
+      const { error: fbErr } = await supabase.from("tokens").insert({
+        token_string: value,
+        is_active: true,
+      });
+      if (fbErr) {
+        alert("Gagal membuat token: " + fbErr.message);
+        return;
+      }
+    }
+
+    // Save custom configuration locally as fallback
+    if (cleanFormUrl || titleVal) {
+      try {
+        const stored = JSON.parse(localStorage.getItem("custom_token_configs") || "{}");
+        stored[value] = {
+          form_url: cleanFormUrl || undefined,
+          exam_title: titleVal || undefined,
+        };
+        localStorage.setItem("custom_token_configs", JSON.stringify(stored));
+      } catch {}
+    }
 
     setNewToken("");
     setNewExamTitle("");

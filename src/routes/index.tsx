@@ -80,17 +80,32 @@ function StudentPage() {
         return;
       }
       setLoading(true);
-      const { data, error: qErr } = await supabase
+      let data: { id: string; is_active: boolean; form_url?: string | null; exam_title?: string | null } | null = null;
+      
+      const { data: qData, error: qErr } = await supabase
         .from("tokens")
         .select("id, is_active, form_url, exam_title")
         .eq("token_string", cleanToken)
         .maybeSingle();
 
       if (qErr) {
-        setLoading(false);
-        setError("Gagal memeriksa token. Coba lagi.");
-        return;
+        // Fallback query if columns don't exist yet on remote DB
+        const { data: fbData, error: fbErr } = await supabase
+          .from("tokens")
+          .select("id, is_active")
+          .eq("token_string", cleanToken)
+          .maybeSingle();
+
+        if (fbErr) {
+          setLoading(false);
+          setError("Gagal memeriksa token. Coba lagi.");
+          return;
+        }
+        data = fbData;
+      } else {
+        data = qData;
       }
+
       if (!data) {
         setLoading(false);
         setError("Token tidak ditemukan. Periksa kembali token ujian Anda.");
@@ -106,8 +121,19 @@ function StudentPage() {
         .from("exam_sessions")
         .insert({ student_name: cleanName, token_used: cleanToken, status: "active" });
 
-      const targetFormUrl = data.form_url || localStorage.getItem("exam_form_url") || DEFAULT_FORM_URL;
-      const targetExamTitle = data.exam_title || "Portal Ujian CBT";
+      let tokenFormUrl = data.form_url;
+      let tokenExamTitle = data.exam_title;
+
+      try {
+        const stored = JSON.parse(localStorage.getItem("custom_token_configs") || "{}");
+        if (stored[cleanToken]) {
+          tokenFormUrl = tokenFormUrl || stored[cleanToken].form_url;
+          tokenExamTitle = tokenExamTitle || stored[cleanToken].exam_title;
+        }
+      } catch {}
+
+      const targetFormUrl = tokenFormUrl || localStorage.getItem("exam_form_url") || DEFAULT_FORM_URL;
+      const targetExamTitle = tokenExamTitle || "Portal Ujian CBT";
 
       const newSess = {
         name: cleanName,

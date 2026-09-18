@@ -35,7 +35,7 @@ type SessionRow = { id: string; student_name: string; token_used: string; status
 
 const ADMIN_PIN = (import.meta.env.VITE_ADMIN_PIN as string) || "123456";
 const DEFAULT_FORM_URL =
-  "https://docs.google.com/forms/d/e/1FAIpQLSf_dummy_form_id_example/viewform?embedded=true";
+  "https://docs.google.com/forms/d/e/1FAIpQLSdwQJ4_hTTEWdwu_l9KJ5FMVT8A-iGVRMPJ8kKMfzUBhcamyA/viewform?embedded=true";
 
 function formatTime(value: string) {
   return new Date(value).toLocaleTimeString("id-ID", {

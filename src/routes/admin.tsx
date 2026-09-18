@@ -33,7 +33,7 @@ type TokenRow = {
 type LogRow = { id: string; student_name: string; violation_type: string; timestamp: string };
 type SessionRow = { id: string; student_name: string; token_used: string; status: string };
 
-const ADMIN_PIN = (import.meta.env.VITE_ADMIN_PIN as string) || "123456";
+const ADMIN_PIN = (import.meta.env.VITE_ADMIN_PIN as string) || "abc12345";
 const DEFAULT_FORM_URL =
   "https://docs.google.com/forms/d/e/1FAIpQLSecabW3KkZoKbD8x84Kv_BJIAnK3vHNK-JBaCA3CC5WyImV0Q/viewform?embedded=true";
 
@@ -173,7 +173,7 @@ function AdminPage() {
       } else {
         await supabase.from("tokens").insert({ token_string: "GLOBAL", form_url: cleanUrl, is_active: false, exam_title: "Global Form Setting" });
       }
-    } catch {}
+    } catch { }
 
     setUrlSavedMessage("Link Google Form berhasil diperbarui online untuk semua perangkat!");
     setTimeout(() => setUrlSavedMessage(null), 4000);
@@ -205,7 +205,7 @@ function AdminPage() {
         form_url: t.form_url || stored[t.token_string]?.form_url,
         exam_title: t.exam_title || stored[t.token_string]?.exam_title,
       }));
-    } catch {}
+    } catch { }
 
     setTokens(result);
   }, []);
@@ -317,7 +317,7 @@ function AdminPage() {
           exam_title: titleVal || undefined,
         };
         localStorage.setItem("custom_token_configs", JSON.stringify(stored));
-      } catch {}
+      } catch { }
     }
 
     setNewToken("");
@@ -437,9 +437,8 @@ function AdminPage() {
           </div>
           <div className="flex items-center gap-2">
             <span
-              className={`flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ${
-                live ? "bg-emerald-500/10 text-emerald-600 border border-emerald-500/20" : "bg-secondary text-muted-foreground"
-              }`}
+              className={`flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ${live ? "bg-emerald-500/10 text-emerald-600 border border-emerald-500/20" : "bg-secondary text-muted-foreground"
+                }`}
             >
               <span
                 className={`h-2 w-2 rounded-full ${live ? "animate-pulse bg-emerald-500" : "bg-muted-foreground"}`}
@@ -556,11 +555,10 @@ function AdminPage() {
                     <div className="flex items-center gap-1.5">
                       <button
                         onClick={() => void toggleToken(t)}
-                        className={`rounded-full px-2.5 py-0.5 text-xs font-medium transition ${
-                          t.is_active
-                            ? "bg-emerald-500/15 text-emerald-600 border border-emerald-500/30"
-                            : "bg-secondary text-muted-foreground"
-                        }`}
+                        className={`rounded-full px-2.5 py-0.5 text-xs font-medium transition ${t.is_active
+                          ? "bg-emerald-500/15 text-emerald-600 border border-emerald-500/30"
+                          : "bg-secondary text-muted-foreground"
+                          }`}
                       >
                         {t.is_active ? "Aktif" : "Nonaktif"}
                       </button>
@@ -636,9 +634,8 @@ function AdminPage() {
             {logs.map((log, i) => (
               <article
                 key={log.id}
-                className={`rounded-lg border-l-4 border-destructive bg-destructive/5 p-4 shadow-sm transition hover:bg-destructive/10 ${
-                  i === 0 ? "ring-2 ring-destructive/30" : ""
-                }`}
+                className={`rounded-lg border-l-4 border-destructive bg-destructive/5 p-4 shadow-sm transition hover:bg-destructive/10 ${i === 0 ? "ring-2 ring-destructive/30" : ""
+                  }`}
               >
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <h3 className="text-base font-bold text-destructive">{log.student_name}</h3>

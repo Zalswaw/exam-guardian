@@ -14,7 +14,72 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      cheat_logs: {
+        Row: {
+          id: string
+          student_name: string
+          timestamp: string
+          violation_type: string
+        }
+        Insert: {
+          id?: string
+          student_name: string
+          timestamp?: string
+          violation_type: string
+        }
+        Update: {
+          id?: string
+          student_name?: string
+          timestamp?: string
+          violation_type?: string
+        }
+        Relationships: []
+      }
+      exam_sessions: {
+        Row: {
+          created_at: string
+          id: string
+          status: string
+          student_name: string
+          token_used: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          status?: string
+          student_name: string
+          token_used: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          status?: string
+          student_name?: string
+          token_used?: string
+        }
+        Relationships: []
+      }
+      tokens: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          token_string: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          token_string: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          token_string?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

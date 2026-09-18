@@ -65,18 +65,24 @@ export type Database = {
           id: string
           is_active: boolean
           token_string: string
+          form_url?: string | null
+          exam_title?: string | null
         }
         Insert: {
           created_at?: string
           id?: string
           is_active?: boolean
           token_string: string
+          form_url?: string | null
+          exam_title?: string | null
         }
         Update: {
           created_at?: string
           id?: string
           is_active?: boolean
           token_string?: string
+          form_url?: string | null
+          exam_title?: string | null
         }
         Relationships: []
       }

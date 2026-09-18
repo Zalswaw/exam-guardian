@@ -31,7 +31,12 @@ function StudentPage() {
   const [token, setToken] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [session, setSession] = useState<{ name: string; token: string } | null>(() => {
+  const [session, setSession] = useState<{
+    name: string;
+    token: string;
+    formUrl?: string;
+    examTitle?: string;
+  } | null>(() => {
     if (typeof window === "undefined") return null;
     const saved = sessionStorage.getItem("exam_student_session");
     if (!saved) return null;
@@ -52,11 +57,13 @@ function StudentPage() {
   const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   useEffect(() => {
-    if (typeof window !== "undefined") {
+    if (session?.formUrl) {
+      setFormUrl(session.formUrl);
+    } else if (typeof window !== "undefined") {
       const savedUrl = localStorage.getItem("exam_form_url");
       if (savedUrl) setFormUrl(savedUrl);
     }
-  }, []);
+  }, [session]);
 
   const handleSubmit = useCallback(
     async (e: React.FormEvent) => {
@@ -75,7 +82,7 @@ function StudentPage() {
       setLoading(true);
       const { data, error: qErr } = await supabase
         .from("tokens")
-        .select("id, is_active")
+        .select("id, is_active, form_url, exam_title")
         .eq("token_string", cleanToken)
         .maybeSingle();
 
@@ -99,10 +106,20 @@ function StudentPage() {
         .from("exam_sessions")
         .insert({ student_name: cleanName, token_used: cleanToken, status: "active" });
 
-      const newSess = { name: cleanName, token: cleanToken };
+      const targetFormUrl = data.form_url || localStorage.getItem("exam_form_url") || DEFAULT_FORM_URL;
+      const targetExamTitle = data.exam_title || "Portal Ujian CBT";
+
+      const newSess = {
+        name: cleanName,
+        token: cleanToken,
+        formUrl: targetFormUrl,
+        examTitle: targetExamTitle,
+      };
+
       if (typeof window !== "undefined") {
         sessionStorage.setItem("exam_student_session", JSON.stringify(newSess));
       }
+      setFormUrl(targetFormUrl);
       setLoading(false);
       setSession(newSess);
     },
@@ -303,7 +320,9 @@ function StudentPage() {
               CBT
             </span>
             <div>
-              <p className="text-sm font-semibold text-foreground">{session.name}</p>
+              <p className="text-sm font-semibold text-foreground">
+                {session.name} {session.examTitle ? `• ${session.examTitle}` : ""}
+              </p>
               <p className="font-mono text-xs text-muted-foreground">Token: {session.token}</p>
             </div>
           </div>

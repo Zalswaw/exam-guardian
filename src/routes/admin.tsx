@@ -23,7 +23,13 @@ export const Route = createFileRoute("/admin")({
   component: AdminPage,
 });
 
-type TokenRow = { id: string; token_string: string; is_active: boolean };
+type TokenRow = {
+  id: string;
+  token_string: string;
+  is_active: boolean;
+  form_url?: string | null;
+  exam_title?: string | null;
+};
 type LogRow = { id: string; student_name: string; violation_type: string; timestamp: string };
 type SessionRow = { id: string; student_name: string; token_used: string; status: string };
 
@@ -50,7 +56,12 @@ function AdminPage() {
   const [tokens, setTokens] = useState<TokenRow[]>([]);
   const [logs, setLogs] = useState<LogRow[]>([]);
   const [sessions, setSessions] = useState<SessionRow[]>([]);
+
+  // Token creation form state
   const [newToken, setNewToken] = useState("");
+  const [newExamTitle, setNewExamTitle] = useState("");
+  const [newTokenFormUrl, setNewTokenFormUrl] = useState("");
+
   const [live, setLive] = useState(false);
   const [soundOn, setSoundOn] = useState(true);
 
@@ -147,7 +158,7 @@ function AdminPage() {
   const loadTokens = useCallback(async () => {
     const { data } = await supabase
       .from("tokens")
-      .select("id, token_string, is_active")
+      .select("id, token_string, is_active, form_url, exam_title")
       .order("created_at", { ascending: false });
     setTokens(data ?? []);
   }, []);
@@ -213,8 +224,31 @@ function AdminPage() {
     e.preventDefault();
     const value = newToken.trim().toUpperCase();
     if (!value) return;
-    await supabase.from("tokens").insert({ token_string: value, is_active: true });
+
+    let cleanFormUrl = newTokenFormUrl.trim();
+    if (cleanFormUrl.includes("/edit")) {
+      cleanFormUrl = cleanFormUrl.replace(/\/edit.*$/, "/viewform?embedded=true");
+    }
+    if (cleanFormUrl.includes("/viewform") && !cleanFormUrl.includes("embedded=true")) {
+      cleanFormUrl = cleanFormUrl.includes("?") ? `${cleanFormUrl}&embedded=true` : `${cleanFormUrl}?embedded=true`;
+    }
+
+    await supabase.from("tokens").insert({
+      token_string: value,
+      exam_title: newExamTitle.trim() || null,
+      form_url: cleanFormUrl || null,
+      is_active: true,
+    });
+
     setNewToken("");
+    setNewExamTitle("");
+    setNewTokenFormUrl("");
+    void loadTokens();
+  };
+
+  const deleteToken = async (id: string) => {
+    if (!window.confirm("Hapus token ini?")) return;
+    await supabase.from("tokens").delete().eq("id", id);
     void loadTokens();
   };
 
@@ -366,43 +400,85 @@ function AdminPage() {
             )}
           </div>
 
-          <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
-            <h2 className="text-sm font-semibold text-foreground">Token Ujian</h2>
-            <form onSubmit={addToken} className="mt-3 flex gap-2">
+          <div className="rounded-xl border border-border bg-card p-5 shadow-sm space-y-4">
+            <div>
+              <h2 className="text-sm font-semibold text-foreground">Kelola Token & Soal Ujian</h2>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Setiap Guru bisa membuat Token baru lengkap dengan Nama Ujian & Link Google Form soal masing-masing.
+              </p>
+            </div>
+
+            <form onSubmit={addToken} className="space-y-2.5 rounded-lg bg-secondary/40 p-3 border border-border">
               <input
                 value={newToken}
                 onChange={(e) => setNewToken(e.target.value.toUpperCase())}
-                placeholder="TOKEN BARU"
+                placeholder="KODE TOKEN (cth: MATH-8A)"
                 maxLength={32}
-                className="min-w-0 flex-1 rounded-md border border-input bg-background px-3 py-2 font-mono text-sm tracking-widest text-foreground uppercase outline-none focus:border-ring focus:ring-2 focus:ring-ring/25"
+                className="w-full rounded-md border border-input bg-background px-3 py-2 font-mono text-xs tracking-widest text-foreground uppercase outline-none focus:border-ring focus:ring-2 focus:ring-ring/25"
+                required
               />
-              <button className="rounded-md bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground transition hover:opacity-90">
-                Tambah
+              <input
+                value={newExamTitle}
+                onChange={(e) => setNewExamTitle(e.target.value)}
+                placeholder="Nama Ujian / Mapel (cth: Ujian Matematika 8A)"
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-xs text-foreground outline-none focus:border-ring focus:ring-2 focus:ring-ring/25"
+              />
+              <input
+                value={newTokenFormUrl}
+                onChange={(e) => setNewTokenFormUrl(e.target.value)}
+                placeholder="Link Google Form Khusus Token Ini (Opsional)"
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-xs text-foreground outline-none focus:border-ring focus:ring-2 focus:ring-ring/25"
+              />
+              <button className="w-full rounded-md bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground transition hover:opacity-90">
+                + Tambah Token & Soal Ujian
               </button>
             </form>
 
-            <ul className="mt-4 space-y-2">
+            <ul className="space-y-2.5 max-h-80 overflow-y-auto pr-1">
               {tokens.length === 0 && (
-                <li className="text-sm text-muted-foreground">Belum ada token.</li>
+                <li className="text-xs text-muted-foreground text-center py-4">Belum ada token.</li>
               )}
               {tokens.map((t) => (
                 <li
                   key={t.id}
-                  className="flex items-center justify-between gap-3 rounded-md border border-border px-3 py-2"
+                  className="rounded-lg border border-border bg-card p-3 space-y-1.5 shadow-xs"
                 >
-                  <span className="font-mono text-sm tracking-widest text-foreground">
-                    {t.token_string}
-                  </span>
-                  <button
-                    onClick={() => void toggleToken(t)}
-                    className={`rounded-full px-2.5 py-1 text-xs font-medium transition ${
-                      t.is_active
-                        ? "bg-emerald-500/15 text-emerald-600 border border-emerald-500/30"
-                        : "bg-secondary text-muted-foreground"
-                    }`}
-                  >
-                    {t.is_active ? "Aktif" : "Nonaktif"}
-                  </button>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-mono text-sm font-bold tracking-widest text-foreground">
+                      {t.token_string}
+                    </span>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        onClick={() => void toggleToken(t)}
+                        className={`rounded-full px-2.5 py-0.5 text-xs font-medium transition ${
+                          t.is_active
+                            ? "bg-emerald-500/15 text-emerald-600 border border-emerald-500/30"
+                            : "bg-secondary text-muted-foreground"
+                        }`}
+                      >
+                        {t.is_active ? "Aktif" : "Nonaktif"}
+                      </button>
+                      <button
+                        onClick={() => void deleteToken(t.id)}
+                        className="text-xs text-destructive hover:underline px-1"
+                        title="Hapus Token"
+                      >
+                        🗑️
+                      </button>
+                    </div>
+                  </div>
+                  {t.exam_title && (
+                    <p className="text-xs font-medium text-foreground">{t.exam_title}</p>
+                  )}
+                  {t.form_url ? (
+                    <p className="text-[11px] text-emerald-600 truncate font-mono">
+                      🔗 Link Form Khusus Terpasang
+                    </p>
+                  ) : (
+                    <p className="text-[11px] text-muted-foreground italic">
+                      Gunakan Link Form Utama (Global)
+                    </p>
+                  )}
                 </li>
               ))}
             </ul>

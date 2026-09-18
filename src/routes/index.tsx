@@ -24,7 +24,7 @@ export const Route = createFileRoute("/")({
 });
 
 const DEFAULT_FORM_URL =
-  "https://docs.google.com/forms/d/e/1FAIpQLSdwQJ4_hTTEWdwu_l9KJ5FMVT8A-iGVRMPJ8kKMfzUBhcamyA/viewform?embedded=true";
+  "https://docs.google.com/forms/d/e/1FAIpQLSecabW3KkZoKbD8x84Kv_BJIAnK3vHNK-JBaCA3CC5WyImV0Q/viewform?embedded=true";
 
 function StudentPage() {
   const [name, setName] = useState("");

@@ -258,8 +258,75 @@ function StudentPage() {
           "Inspect / Developer Tools",
           "Dilarang membuka Developer Tools / Inspect Element!",
         );
+        return;
+      }
+
+      // Deteksi pintasan keyboard AI Sidebar & Screenshot
+      // Gemini sidebar di Chrome: Ctrl+Shift+K
+      // Copilot sidebar di Edge: Ctrl+Shift+.
+      // Snipping Tool Windows: PrintScreen
+      if (
+        (e.ctrlKey && e.shiftKey && (e.key === "K" || e.key === "k")) ||
+        (e.ctrlKey && e.shiftKey && e.key === ".") ||
+        e.key === "PrintScreen"
+      ) {
+        e.preventDefault();
+        void recordViolation(
+          "Pintasan AI Sidebar / Screenshot",
+          "Dilarang menggunakan pintasan AI Sidebar (Gemini/Copilot) atau Screenshot selama ujian!",
+        );
       }
     };
+
+    // ─── Deteksi AI Sidebar (Gemini / Copilot) via perubahan lebar window ───
+    // Sidebar browser mengecilkan innerWidth halaman secara tiba-tiba tanpa
+    // memicu visibilitychange maupun blur.
+    let lastWidth = window.innerWidth;
+    const SIDEBAR_THRESHOLD = 150; // px
+    const onResize = () => {
+      const currentWidth = window.innerWidth;
+      const delta = lastWidth - currentWidth;
+      if (delta > SIDEBAR_THRESHOLD) {
+        void recordViolation(
+          "AI Sidebar Dibuka (Gemini/Copilot)",
+          "Terdeteksi panel samping AI (Google Gemini / Microsoft Copilot) dibuka saat ujian! Pengawas dinotifikasi.",
+        );
+      }
+      lastWidth = currentWidth;
+    };
+
+    // ─── Deteksi Browser Extension via MutationObserver ───
+    // Extension menyuntikkan elemen asing ke DOM (tombol mengambang, shadow DOM, dll).
+    const SUSPICIOUS_ATTR_PREFIXES = ["data-ext", "crx-", "__ext", "ext-", "data-grammarly", "data-dashlane"];
+    const mutationObserver = new MutationObserver((mutations) => {
+      for (const mutation of mutations) {
+        for (const node of mutation.addedNodes) {
+          if (node.nodeType !== Node.ELEMENT_NODE) continue;
+          const el = node as Element;
+          // Cek apakah elemen memiliki shadow root (ciri khas extension)
+          if (el.shadowRoot !== null) {
+            void recordViolation(
+              "Ekstensi Browser Terdeteksi",
+              "Terdeteksi ekstensi browser yang tidak diizinkan aktif saat ujian! Pengawas dinotifikasi.",
+            );
+            break;
+          }
+          // Cek atribut mencurigakan milik extension
+          const attrs = Array.from(el.attributes || []);
+          const isSuspicious = attrs.some((a) =>
+            SUSPICIOUS_ATTR_PREFIXES.some((prefix) => a.name.startsWith(prefix)),
+          );
+          if (isSuspicious) {
+            void recordViolation(
+              "Ekstensi Browser Terdeteksi",
+              "Terdeteksi ekstensi browser yang tidak diizinkan aktif saat ujian! Pengawas dinotifikasi.",
+            );
+            break;
+          }
+        }
+      }
+    });
+    mutationObserver.observe(document.body, { childList: true, subtree: true });
 
     document.addEventListener("visibilitychange", onVisibility);
     window.addEventListener("blur", onBlur);
@@ -268,6 +335,7 @@ function StudentPage() {
     document.addEventListener("cut", onCopyCutPaste);
     document.addEventListener("paste", onCopyCutPaste);
     window.addEventListener("keydown", onKeyDown);
+    window.addEventListener("resize", onResize);
 
     return () => {
       document.removeEventListener("visibilitychange", onVisibility);
@@ -277,6 +345,8 @@ function StudentPage() {
       document.removeEventListener("cut", onCopyCutPaste);
       document.removeEventListener("paste", onCopyCutPaste);
       window.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("resize", onResize);
+      mutationObserver.disconnect();
       if (timerRef.current) clearTimeout(timerRef.current);
     };
   }, [session]);

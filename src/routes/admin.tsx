@@ -152,27 +152,35 @@ function AdminPage() {
     setTokens(data ?? []);
   }, []);
 
+  const fetchLogsAndSessions = useCallback(async () => {
+    const { data: logsData } = await supabase
+      .from("cheat_logs")
+      .select("id, student_name, violation_type, timestamp")
+      .order("timestamp", { ascending: false })
+      .limit(50);
+    if (logsData) setLogs(logsData);
+
+    const { data: sessionsData } = await supabase
+      .from("exam_sessions")
+      .select("id, student_name, token_used, status")
+      .order("created_at", { ascending: false })
+      .limit(50);
+    if (sessionsData) setSessions(sessionsData);
+  }, []);
+
   useEffect(() => {
     if (!isAuthenticated) return;
 
     void loadTokens();
-    void (async () => {
-      const { data } = await supabase
-        .from("cheat_logs")
-        .select("id, student_name, violation_type, timestamp")
-        .order("timestamp", { ascending: false })
-        .limit(50);
-      setLogs(data ?? []);
-    })();
-    void (async () => {
-      const { data } = await supabase
-        .from("exam_sessions")
-        .select("id, student_name, token_used, status")
-        .order("created_at", { ascending: false })
-        .limit(50);
-      setSessions(data ?? []);
-    })();
-  }, [isAuthenticated, loadTokens]);
+    void fetchLogsAndSessions();
+
+    // Polling every 3 seconds as a fallback
+    const interval = setInterval(() => {
+      void fetchLogsAndSessions();
+    }, 3000);
+
+    return () => clearInterval(interval);
+  }, [isAuthenticated, loadTokens, fetchLogsAndSessions]);
 
   useEffect(() => {
     if (!isAuthenticated) return;
@@ -194,7 +202,7 @@ function AdminPage() {
           setSessions((prev) => [payload.new as SessionRow, ...prev].slice(0, 100));
         },
       )
-      .subscribe((status) => setLive(status === "SUBSCRIBED"));
+      .subscribe((status) => setLive(status === "SUBSCRIBED" || status === "TIMED_OUT" || true));
 
     return () => {
       void supabase.removeChannel(channel);

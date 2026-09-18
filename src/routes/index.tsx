@@ -121,7 +121,7 @@ function StudentPage() {
   useEffect(() => {
     if (!session) return;
 
-    const recordViolation = (type: string, msg: string) => {
+    const recordViolation = async (type: string, msg: string) => {
       const now = Date.now();
       if (now - lastLogRef.current < 2500) return;
       lastLogRef.current = now;
@@ -129,9 +129,13 @@ function StudentPage() {
       const current = sessionRef.current;
       if (!current) return;
 
-      void supabase
+      const { error: insErr } = await supabase
         .from("cheat_logs")
         .insert({ student_name: current.name, violation_type: type });
+
+      if (insErr) {
+        console.error("Gagal menyimpan log pelanggaran ke database:", insErr);
+      }
 
       setViolations((v) => v + 1);
       setWarningMessage(msg);
@@ -143,7 +147,7 @@ function StudentPage() {
 
     const onVisibility = () => {
       if (document.hidden) {
-        recordViolation(
+        void recordViolation(
           "Pindah Tab",
           "Anda terdeteksi berpindah tab browser. Pengawas telah dinotifikasi!",
         );
@@ -151,15 +155,29 @@ function StudentPage() {
     };
 
     const onBlur = () => {
-      recordViolation(
-        "Pindah Jendela / Fokus Hilang",
-        "Jendela ujian kehilangan fokus (terindikasi muka aplikasi lain). Pengawas dinotifikasi!",
-      );
+      // Delay slightly to check if focus transferred to the embedded Google Form iframe
+      setTimeout(() => {
+        if (
+          document.activeElement &&
+          (document.activeElement.tagName === "IFRAME" ||
+            document.activeElement.closest("iframe"))
+        ) {
+          // Focus moved inside the Google Form iframe - NOT a violation!
+          return;
+        }
+        if (document.hasFocus()) {
+          return;
+        }
+        void recordViolation(
+          "Pindah Jendela / Fokus Hilang",
+          "Jendela ujian kehilangan fokus (terindikasi membuka aplikasi lain). Pengawas dinotifikasi!",
+        );
+      }, 150);
     };
 
     const onContextMenu = (e: MouseEvent) => {
       e.preventDefault();
-      recordViolation(
+      void recordViolation(
         "Klik Kanan / Inspect",
         "Penggunaan menu klik kanan dilarang selama ujian berlangsung!",
       );
@@ -167,7 +185,7 @@ function StudentPage() {
 
     const onCopyCutPaste = (e: ClipboardEvent) => {
       e.preventDefault();
-      recordViolation(
+      void recordViolation(
         "Menyalin/Menempel Teks",
         "Tindakan menyalin (Copy) atau menempel (Paste) dilarang selama ujian!",
       );
@@ -180,7 +198,7 @@ function StudentPage() {
         (e.ctrlKey && (e.key === "u" || e.key === "U"))
       ) {
         e.preventDefault();
-        recordViolation(
+        void recordViolation(
           "Inspect / Developer Tools",
           "Dilarang membuka Developer Tools / Inspect Element!",
         );

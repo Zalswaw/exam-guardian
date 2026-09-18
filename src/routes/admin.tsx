@@ -147,7 +147,7 @@ function AdminPage() {
     setIsAuthenticated(false);
   };
 
-  const handleSaveFormUrl = (e: React.FormEvent) => {
+  const handleSaveFormUrl = async (e: React.FormEvent) => {
     e.preventDefault();
     let cleanUrl = formUrlInput.trim();
     if (!cleanUrl) return;
@@ -164,7 +164,18 @@ function AdminPage() {
     if (typeof window !== "undefined") {
       localStorage.setItem("exam_form_url", cleanUrl);
     }
-    setUrlSavedMessage("Link Google Form berhasil diperbarui untuk portal siswa!");
+
+    // Sync global URL to Supabase Cloud DB for all online devices
+    try {
+      const { data: existing } = await supabase.from("tokens").select("id").eq("token_string", "GLOBAL").maybeSingle();
+      if (existing) {
+        await supabase.from("tokens").update({ form_url: cleanUrl }).eq("token_string", "GLOBAL");
+      } else {
+        await supabase.from("tokens").insert({ token_string: "GLOBAL", form_url: cleanUrl, is_active: false, exam_title: "Global Form Setting" });
+      }
+    } catch {}
+
+    setUrlSavedMessage("Link Google Form berhasil diperbarui online untuk semua perangkat!");
     setTimeout(() => setUrlSavedMessage(null), 4000);
   };
 

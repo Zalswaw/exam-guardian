@@ -132,6 +132,19 @@ function StudentPage() {
         }
       } catch {}
 
+      if (!tokenFormUrl) {
+        try {
+          const { data: globalData } = await supabase
+            .from("tokens")
+            .select("form_url")
+            .eq("token_string", "GLOBAL")
+            .maybeSingle();
+          if (globalData?.form_url) {
+            tokenFormUrl = globalData.form_url;
+          }
+        } catch {}
+      }
+
       const targetFormUrl = tokenFormUrl || localStorage.getItem("exam_form_url") || DEFAULT_FORM_URL;
       const targetExamTitle = tokenExamTitle || "Portal Ujian CBT";
 

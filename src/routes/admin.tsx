@@ -57,6 +57,19 @@ function AdminPage() {
   const [logs, setLogs] = useState<LogRow[]>([]);
   const [sessions, setSessions] = useState<SessionRow[]>([]);
 
+  // Deleted logs tracking to prevent polling from re-displaying deleted logs
+  const [deletedLogIds, setDeletedLogIds] = useState<string[]>(() => {
+    if (typeof window === "undefined") return [];
+    try {
+      return JSON.parse(localStorage.getItem("deleted_cheat_logs") || "[]");
+    } catch {
+      return [];
+    }
+  });
+
+  const deletedLogIdsRef = useRef<string[]>([]);
+  deletedLogIdsRef.current = deletedLogIds;
+
   // Token creation form state
   const [newToken, setNewToken] = useState("");
   const [newExamTitle, setNewExamTitle] = useState("");
@@ -169,7 +182,10 @@ function AdminPage() {
       .select("id, student_name, violation_type, timestamp")
       .order("timestamp", { ascending: false })
       .limit(50);
-    if (logsData) setLogs(logsData);
+    if (logsData) {
+      const hiddenIds = deletedLogIdsRef.current;
+      setLogs(logsData.filter((l) => !hiddenIds.includes(l.id)));
+    }
 
     const { data: sessionsData } = await supabase
       .from("exam_sessions")
@@ -202,8 +218,11 @@ function AdminPage() {
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "cheat_logs" },
         (payload) => {
-          setLogs((prev) => [payload.new as LogRow, ...prev].slice(0, 100));
-          chime();
+          const newLog = payload.new as LogRow;
+          if (!deletedLogIdsRef.current.includes(newLog.id)) {
+            setLogs((prev) => [newLog, ...prev].slice(0, 100));
+            chime();
+          }
         },
       )
       .on(
@@ -258,13 +277,31 @@ function AdminPage() {
   };
 
   const deleteLog = async (id: string) => {
-    await supabase.from("cheat_logs").delete().eq("id", id);
+    void supabase.from("cheat_logs").delete().eq("id", id);
+
+    setDeletedLogIds((prev) => {
+      const updated = [...prev, id];
+      if (typeof window !== "undefined") {
+        localStorage.setItem("deleted_cheat_logs", JSON.stringify(updated));
+      }
+      return updated;
+    });
     setLogs((prev) => prev.filter((l) => l.id !== id));
   };
 
   const clearAllLogs = async () => {
     if (!window.confirm("Apakah Anda yakin ingin menghapus SELURUH riwayat pelanggaran?")) return;
-    await supabase.from("cheat_logs").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+
+    void supabase.from("cheat_logs").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+
+    const currentIds = logs.map((l) => l.id);
+    setDeletedLogIds((prev) => {
+      const updated = Array.from(new Set([...prev, ...currentIds]));
+      if (typeof window !== "undefined") {
+        localStorage.setItem("deleted_cheat_logs", JSON.stringify(updated));
+      }
+      return updated;
+    });
     setLogs([]);
   };
 

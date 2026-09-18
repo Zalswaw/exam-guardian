@@ -257,6 +257,17 @@ function AdminPage() {
     void loadTokens();
   };
 
+  const deleteLog = async (id: string) => {
+    await supabase.from("cheat_logs").delete().eq("id", id);
+    setLogs((prev) => prev.filter((l) => l.id !== id));
+  };
+
+  const clearAllLogs = async () => {
+    if (!window.confirm("Apakah Anda yakin ingin menghapus SELURUH riwayat pelanggaran?")) return;
+    await supabase.from("cheat_logs").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+    setLogs([]);
+  };
+
   if (!isAuthenticated) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-background px-4 py-12">
@@ -503,12 +514,22 @@ function AdminPage() {
           </div>
         </section>
 
-        <section className="rounded-xl border border-border bg-card p-5 shadow-sm">
-          <div className="flex items-center justify-between">
+        <section className="rounded-xl border border-border bg-card p-5 shadow-sm space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-2">
             <h2 className="text-sm font-semibold text-foreground">Monitoring Real-Time</h2>
-            <span className="rounded-full bg-destructive/10 text-destructive border border-destructive/20 px-3 py-1 text-xs font-medium">
-              {logs.length} pelanggaran
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="rounded-full bg-destructive/10 text-destructive border border-destructive/20 px-3 py-1 text-xs font-medium">
+                {logs.length} pelanggaran
+              </span>
+              {logs.length > 0 && (
+                <button
+                  onClick={() => void clearAllLogs()}
+                  className="rounded-full border border-destructive/30 bg-destructive/10 px-3 py-1 text-xs font-medium text-destructive transition hover:bg-destructive hover:text-destructive-foreground"
+                >
+                  🗑️ Hapus Semua
+                </button>
+              )}
+            </div>
           </div>
 
           <div className="mt-4 space-y-3 max-h-[720px] overflow-y-auto pr-1">
@@ -520,15 +541,24 @@ function AdminPage() {
             {logs.map((log, i) => (
               <article
                 key={log.id}
-                className={`rounded-lg border-l-4 border-destructive bg-destructive/5 p-4 shadow-sm ${
+                className={`rounded-lg border-l-4 border-destructive bg-destructive/5 p-4 shadow-sm transition hover:bg-destructive/10 ${
                   i === 0 ? "ring-2 ring-destructive/30" : ""
                 }`}
               >
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <h3 className="text-base font-bold text-destructive">{log.student_name}</h3>
-                  <span className="font-mono text-xs text-muted-foreground">
-                    {formatTime(log.timestamp)}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono text-xs text-muted-foreground">
+                      {formatTime(log.timestamp)}
+                    </span>
+                    <button
+                      onClick={() => void deleteLog(log.id)}
+                      className="rounded p-1 text-xs text-muted-foreground hover:bg-destructive/20 hover:text-destructive transition"
+                      title="Hapus Pelanggaran Ini"
+                    >
+                      🗑️
+                    </button>
+                  </div>
                 </div>
                 <p className="mt-1 text-sm font-medium text-foreground">
                   Pelanggaran: <span className="font-semibold text-destructive">{log.violation_type}</span>

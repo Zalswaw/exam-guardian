@@ -419,9 +419,6 @@ function AdminPage() {
       <header className="border-b border-border bg-card">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-4">
           <div className="flex items-center gap-3">
-            <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary text-xs font-bold text-primary-foreground">
-              CBT
-            </span>
             <div>
               <h1 className="text-lg font-bold tracking-tight text-foreground">Dashboard Pengawas</h1>
               <p className="text-xs text-muted-foreground">Monitoring ujian & token secara langsung</p>

@@ -273,9 +273,6 @@ function StudentPage() {
       <main className="flex min-h-screen items-center justify-center bg-background px-4 py-12">
         <div className="w-full max-w-md">
           <div className="mb-8 text-center">
-            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-xl bg-primary text-2xl font-bold text-primary-foreground shadow-sm">
-              CBT
-            </div>
             <h1 className="text-2xl font-bold tracking-tight text-foreground">Portal Ujian Siswa</h1>
             <p className="mt-2 text-sm text-muted-foreground">
               Masukkan data diri Anda untuk memulai ujian.
@@ -342,9 +339,6 @@ function StudentPage() {
       <header className="sticky top-0 z-10 border-b border-border bg-card">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-3">
           <div className="flex items-center gap-3">
-            <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-xs font-bold text-primary-foreground">
-              CBT
-            </span>
             <div>
               <p className="text-sm font-semibold text-foreground">
                 {session.name} {session.examTitle ? `• ${session.examTitle}` : ""}

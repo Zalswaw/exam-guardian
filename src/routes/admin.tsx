@@ -172,6 +172,46 @@ function AdminPage() {
   const [editingRoomPin, setEditingRoomPin] = useState<string | null>(null);
   const [newPinValue, setNewPinValue] = useState("");
   const [isIncidentFullscreen, setIsIncidentFullscreen] = useState(false);
+  const [schemaNeedsMigration, setSchemaNeedsMigration] = useState(false);
+  const [copiedSql, setCopiedSql] = useState(false);
+
+  const MIGRATION_SQL = `-- 1. Tambahkan kolom form_url, exam_title, dan room ke tabel tokens
+ALTER TABLE public.tokens 
+ADD COLUMN IF NOT EXISTS form_url text,
+ADD COLUMN IF NOT EXISTS exam_title text,
+ADD COLUMN IF NOT EXISTS room text DEFAULT 'Ruang 1';
+
+-- 2. Tambahkan kolom room ke tabel cheat_logs
+ALTER TABLE public.cheat_logs 
+ADD COLUMN IF NOT EXISTS room text;
+
+-- 3. Beri hak akses lengkap ke anon dan authenticated
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.tokens TO anon, authenticated;
+GRANT ALL ON public.tokens TO service_role;
+
+GRANT SELECT, INSERT, DELETE ON public.cheat_logs TO anon, authenticated;
+GRANT ALL ON public.cheat_logs TO service_role;
+
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.exam_sessions TO anon, authenticated;
+GRANT ALL ON public.exam_sessions TO service_role;
+
+-- 4. Aktifkan policy delete cheat_logs
+DO $$ 
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies WHERE tablename = 'cheat_logs' AND policyname = 'cheat_logs_public_delete'
+  ) THEN
+    CREATE POLICY "cheat_logs_public_delete" ON public.cheat_logs FOR DELETE TO anon, authenticated USING (true);
+  END IF;
+END $$;
+
+NOTIFY pgrst, 'reload schema';`;
+
+  const copyMigrationSql = () => {
+    navigator.clipboard.writeText(MIGRATION_SQL);
+    setCopiedSql(true);
+    setTimeout(() => setCopiedSql(false), 2500);
+  };
 
   // Sync with native fullscreen changes (e.g. user pressing ESC)
   useEffect(() => {
@@ -293,17 +333,37 @@ function AdminPage() {
     let result: TokenRow[] = [];
     const { data, error } = await supabase
       .from("tokens")
-      .select("id, token_string, is_active, form_url, exam_title")
+      .select("id, token_string, is_active, form_url, exam_title, room")
       .order("created_at", { ascending: false });
 
     if (error) {
+      setSchemaNeedsMigration(true);
       const { data: fallbackData } = await supabase
         .from("tokens")
         .select("id, token_string, is_active")
         .order("created_at", { ascending: false });
       result = (fallbackData ?? []) as TokenRow[];
     } else {
+      setSchemaNeedsMigration(false);
       result = (data ?? []) as TokenRow[];
+
+      // Auto-sync local configs to Supabase if columns are available
+      try {
+        const stored = JSON.parse(localStorage.getItem("custom_token_configs") || "{}");
+        for (const t of result) {
+          const localConf = stored[t.token_string];
+          if (localConf && (!t.form_url || !t.room)) {
+            void supabase
+              .from("tokens")
+              .update({
+                form_url: localConf.form_url || t.form_url,
+                exam_title: localConf.exam_title || t.exam_title,
+                room: localConf.room || t.room || "Ruang 1",
+              } as any)
+              .eq("id", t.id);
+          }
+        }
+      } catch {}
     }
 
     try {
@@ -494,6 +554,10 @@ function AdminPage() {
           token_string: value,
           is_active: true,
         });
+        setSchemaNeedsMigration(true);
+        setTokenFormError(
+          "Peringatan: Kolom form_url belum ada di database Supabase (Error 400). Token tersimpan secara lokal di browser ini, namun siswa di perangkat/laptop lain belum bisa membuka soal sampai skrip migrasi SQL dijalankan di Supabase Dashboard.",
+        );
       }
     }
 
@@ -848,6 +912,33 @@ function AdminPage() {
 
       {/* Main Body */}
       <div className="mx-auto w-full max-w-7xl px-4 py-5 sm:px-6 space-y-5">
+        {/* Supabase Schema Warning Banner */}
+        {schemaNeedsMigration && (
+          <div className="rounded-2xl border border-amber-300 bg-amber-50 p-4 shadow-sm animate-in fade-in">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+              <div className="flex items-start gap-3">
+                <AlertTriangle className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
+                <div>
+                  <h4 className="text-sm font-bold text-amber-900">
+                    Perhatian: Kolom Database Supabase Belum Lengkap (Error 400)
+                  </h4>
+                  <p className="mt-1 text-xs text-amber-800 leading-relaxed">
+                    Database Supabase belum memiliki kolom <code>form_url</code>, <code>exam_title</code>, dan <code>room</code> sehingga link soal ujian tidak tersimpan ke cloud dan siswa di perangkat lain tidak bisa mengakses lembar soal ujian. 
+                    Klik tombol di samping untuk menyalin skrip SQL, lalu jalankan di <strong>Supabase Dashboard &gt; SQL Editor</strong>.
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={copyMigrationSql}
+                className="shrink-0 flex items-center gap-1.5 rounded-lg bg-amber-600 px-3.5 py-2 text-xs font-semibold text-white hover:bg-amber-700 transition cursor-pointer shadow-xs whitespace-nowrap"
+              >
+                {copiedSql ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                <span>{copiedSql ? "Skrip SQL Tersalin!" : "Salin Skrip SQL Migrasi"}</span>
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* ROOM FILTER BAR: 10 Rooms Switcher */}
         <div className="rounded-2xl border border-slate-200 bg-white p-3.5 shadow-2xs">
           <div className="flex flex-wrap items-center justify-between gap-2 mb-2">

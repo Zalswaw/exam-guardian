@@ -151,11 +151,12 @@ function StudentPage() {
 
       const { data: qData, error: qErr } = await supabase
         .from("tokens")
-        .select("id, is_active, form_url, exam_title")
+        .select("id, is_active, form_url, exam_title, room")
         .eq("token_string", cleanToken)
         .maybeSingle();
 
       if (qErr) {
+        console.warn("Supabase tokens query warning (possible schema column missing):", qErr);
         // Fallback query if columns don't exist yet on remote DB
         const { data: fbData, error: fbErr } = await supabase
           .from("tokens")
@@ -200,7 +201,15 @@ function StudentPage() {
       // Strict 1 Token = 1 GForm policy
       if (!tokenFormUrl) {
         setLoading(false);
-        setError("Token ini belum memiliki link Google Form soal ujian. Hubungi pengawas ruang untuk mengisi link form soal pada token ini.");
+        if (qErr) {
+          setError(
+            "Database Supabase belum memiliki kolom form_url (Error 400). Harap pengawas/admin menjalankan skrip migrasi SQL di Supabase SQL Editor agar link form tersimpan di database.",
+          );
+        } else {
+          setError(
+            "Token ini belum memiliki link Google Form soal ujian. Hubungi pengawas ruang untuk mengisi link form soal pada token ini.",
+          );
+        }
         return;
       }
 

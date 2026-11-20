@@ -20,18 +20,21 @@ export type Database = {
           student_name: string
           timestamp: string
           violation_type: string
+          room?: string | null
         }
         Insert: {
           id?: string
           student_name: string
           timestamp?: string
           violation_type: string
+          room?: string | null
         }
         Update: {
           id?: string
           student_name?: string
           timestamp?: string
           violation_type?: string
+          room?: string | null
         }
         Relationships: []
       }
@@ -67,6 +70,7 @@ export type Database = {
           token_string: string
           form_url?: string | null
           exam_title?: string | null
+          room?: string | null
         }
         Insert: {
           created_at?: string
@@ -75,6 +79,7 @@ export type Database = {
           token_string: string
           form_url?: string | null
           exam_title?: string | null
+          room?: string | null
         }
         Update: {
           created_at?: string
@@ -83,6 +88,7 @@ export type Database = {
           token_string?: string
           form_url?: string | null
           exam_title?: string | null
+          room?: string | null
         }
         Relationships: []
       }
